@@ -39,6 +39,7 @@
           :trainees="state.trainees"
           :money="state.money"
           @release="(id) => $emit('release-single', id)"
+          @set-positions="(gid, pos, lt) => $emit('set-positions', gid, pos, lt)"
         />
         <RelationshipPanel
           :trainees="state.trainees"
@@ -113,22 +114,22 @@ const emit = defineEmits([
   'debut',
   'resolve-poaching',
   'release-single',
+  'set-positions',
 ])
 
 const showDebut = ref(false)
 const toast = ref('')
 
-function onDebut(memberIds, groupName) {
-  emit('debut', memberIds, groupName, (result) => {
-    if (result?.success) {
-      showDebut.value = false
-      toast.value = '出道成功！'
-      setTimeout(() => { toast.value = '' }, 2500)
-    } else if (result?.message) {
-      toast.value = result.message
-      setTimeout(() => { toast.value = '' }, 3000)
-    }
-  })
+function onDebut(memberIds, groupName, leaderType, positions) {
+  const result = emit('debut', memberIds, groupName, leaderType, positions)
+  if (result?.success) {
+    showDebut.value = false
+    toast.value = '出道成功！'
+    setTimeout(() => { toast.value = '' }, 2500)
+  } else if (result?.message) {
+    toast.value = result.message
+    setTimeout(() => { toast.value = '' }, 3000)
+  }
 }
 </script>
 

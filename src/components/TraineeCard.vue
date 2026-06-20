@@ -2,7 +2,12 @@
   <div class="trainee-card card" :class="statusClass">
     <div class="card-top">
       <h4>{{ trainee.name }}</h4>
-      <span class="badge" :class="trainee.status">{{ statusLabel }}</span>
+      <div class="badges">
+        <span v-if="positionLabel" class="badge position">
+          {{ positionCfg?.icon }} {{ positionLabel }}
+        </span>
+        <span class="badge" :class="trainee.status">{{ statusLabel }}</span>
+      </div>
     </div>
 
     <div class="bars">
@@ -55,6 +60,15 @@ const statusLabel = computed(() => {
   return map[props.trainee.status] || props.trainee.status
 })
 
+const positionCfg = computed(() => {
+  if (!props.trainee.position) return null
+  return GAME_CONFIG.positions.memberRoles[props.trainee.position]
+})
+
+const positionLabel = computed(() => {
+  return positionCfg.value?.label || ''
+})
+
 const statusClass = computed(() => ({
   debuted: props.trainee.status === 'debuted',
   left: props.trainee.status === 'left',
@@ -81,11 +95,23 @@ const statusClass = computed(() => ({
 
 .card-top h4 { font-size: 1rem; }
 
+.badges {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .badge {
   font-size: 0.7rem;
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
   background: var(--bg-secondary);
+}
+
+.badge.position {
+  background: var(--success-soft);
+  color: var(--success);
 }
 
 .badge.debuted { background: var(--accent-soft); color: var(--accent); }

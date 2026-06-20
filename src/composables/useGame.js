@@ -10,6 +10,7 @@ import {
   calcProfit,
   calcTraineeScore,
   getRelationship,
+  setGroupPositions,
 } from '../utils/gameLogic'
 import { saveToSlot } from '../utils/storage'
 
@@ -76,9 +77,19 @@ export function useGame() {
     autoSave()
   }
 
-  function handleDebut(memberIds, groupName) {
+  function handleDebut(memberIds, groupName, leaderType, positions) {
     if (!state.value) return null
-    const result = debutGroup(state.value, memberIds, groupName)
+    const result = debutGroup(state.value, memberIds, groupName, leaderType, positions)
+    if (result.success) {
+      state.value = result.state
+      autoSave()
+    }
+    return result
+  }
+
+  function handleSetPositions(groupId, positions, leaderType) {
+    if (!state.value) return null
+    const result = setGroupPositions(state.value, groupId, positions, leaderType)
     if (result.success) {
       state.value = result.state
       autoSave()
@@ -127,6 +138,7 @@ export function useGame() {
     endDay,
     handlePoaching,
     handleDebut,
+    handleSetPositions,
     handleReleaseSingle,
     dismissRating,
     backToMenu,

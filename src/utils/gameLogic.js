@@ -44,6 +44,7 @@ function createTrainee(name, index) {
     poachResist: randInt(40, 70),
     fans: 0,
     singlesReleased: 0,
+    position: null,
   }
 }
 
@@ -119,7 +120,25 @@ function applyRange(val, range, mult = 1) {
   return val + randInt(Math.round(range[0] * mult), Math.round(range[1] * mult))
 }
 
-function getTrainingMultiplier(trainee, partners, relationships) {
+function getPositionTrainingBonus(trainee, statKey) {
+  let bonus = 0
+  if (trainee.position) {
+    const roleCfg = CFG.positions.memberRoles[trainee.position]
+    if (roleCfg?.effects) {
+      if (roleCfg.effects[`${statKey}Bonus`]) {
+        bonus += roleCfg.effects[`${statKey}Bonus`]
+      }
+    }
+  }
+  return bonus
+}
+
+function getLeaderEffects(group) {
+  if (!group?.leaderType) return {}
+  return CFG.positions.leaderTypes[group.leaderType]?.effects || {}
+}
+
+function getTrainingMultiplier(trainee, partners, relationships, groups) {
   let mult = 1
   if (trainee.fatigue >= CFG.thresholds.fatigueExhausted) mult *= 0.5
   if (trainee.stress >= CFG.thresholds.stressHigh) mult *= 0.8
@@ -133,7 +152,32 @@ function getTrainingMultiplier(trainee, partners, relationships) {
   if (synergyCount > 0) {
     mult *= 1 + CFG.relationships.synergyBonus * Math.min(synergyCount, 2)
   }
+
+  if (trainee.groupId) {
+    const group = groups.find((g) => g.id === trainee.groupId)
+    const leaderEffects = getLeaderEffects(group)
+    if (leaderEffects.allTrainingBonus) {
+      mult *= 1 + leaderEffects.allTrainingBonus
+    }
+  }
+
   return mult
+}
+
+function applyPositionAndLeaderEffects(trainee, activityKey, statKey, baseGain, groups) {
+  let gain = baseGain
+
+  gain *= 1 + getPositionTrainingBonus(trainee, statKey)
+
+  if (trainee.groupId) {
+    const group = groups.find((g) => g.id === trainee.groupId)
+    const leaderEffects = getLeaderEffects(group)
+    if (leaderEffects[`${statKey}TrainingBonus`]) {
+      gain *= 1 + leaderEffects[`${statKey}TrainingBonus`]
+    }
+  }
+
+  return gain
 }
 
 export function processDay(state) {
@@ -144,6 +188,7 @@ export function processDay(state) {
   const relationships = { ...state.relationships }
   const trainees = state.trainees.map((t) => ({ ...t, stats: { ...t.stats } }))
   const schedule = state.schedule
+  const groups = state.groups
 
   const activityGroups = {}
   for (const [traineeId, activity] of Object.entries(schedule)) {
@@ -185,7 +230,7 @@ export function processDay(state) {
       .map((id) => trainees.find((t) => t.id === id))
       .filter(Boolean)
 
-    const mult = getTrainingMultiplier(trainee, partners, relationships)
+    const mult = getTrainingMultiplier(trainee, partners, relationships, groups)
 
     if (activity.requiresTraining && trainee.stress >= CFG.thresholds.stressBreakdown) {
       logs.push({ day: state.day, text: `${trainee.name} 压力过大，无法集中精力训练。` })
@@ -194,19 +239,51 @@ export function processDay(state) {
     }
 
     for (const [stat, range] of Object.entries(activity.statGain || {})) {
-      const gain = randInt(range[0], range[1])
-      trainee.stats[stat] = clamp(
-        trainee.stats[stat] + Math.round(gain * mult),
-        0,
-        CFG.thresholds.statCap
-      )
+      let gain = randInt(range[0], range[1])
+      gain = applyPositionAndLeaderEffects(trainee, activityKey, stat, gain, groups)
+      gain = Math.round(gain * mult)
+      trainee.stats[stat] = clamp(trainee.stats[stat] + gain, 0, CFG.thresholds.statCap)
     }
 
-    trainee.fatigue = clamp(applyRange(trainee.fatigue, activity.fatigue), 0, 100)
-    trainee.stress = clamp(applyRange(trainee.stress, activity.stress), 0, 100)
+    let fatigueGain = randInt(activity.fatigue[0], activity.fatigue[1])
+    let stressGain = randInt(activity.stress[0], activity.stress[1])
+
+    if (trainee.groupId) {
+      const group = groups.find((g) => g.id === trainee.groupId)
+      const leaderEffects = getLeaderEffects(group)
+      if (leaderEffects.fatigueReduction) {
+        fatigueGain = Math.round(fatigueGain * (1 - leaderEffects.fatigueReduction))
+      }
+      if (leaderEffects.stressReduction) {
+        stressGain = Math.round(stressGain * (1 - leaderEffects.stressReduction))
+      }
+    }
+
+    if (trainee.position) {
+      const roleCfg = CFG.positions.memberRoles[trainee.position]
+      if (roleCfg?.effects?.stressReduction) {
+        stressGain = Math.round(stressGain * (1 - roleCfg.effects.stressReduction))
+      }
+    }
+
+    trainee.fatigue = clamp(trainee.fatigue + fatigueGain, 0, 100)
+    trainee.stress = clamp(trainee.stress + stressGain, 0, 100)
 
     if (activity.fansGain) {
-      const gained = randInt(activity.fansGain[0], activity.fansGain[1])
+      let gained = randInt(activity.fansGain[0], activity.fansGain[1])
+      if (trainee.groupId) {
+        const group = groups.find((g) => g.id === trainee.groupId)
+        const leaderEffects = getLeaderEffects(group)
+        if (leaderEffects.prFansBonus) {
+          gained = Math.round(gained * (1 + leaderEffects.prFansBonus))
+        }
+      }
+      if (trainee.position) {
+        const roleCfg = CFG.positions.memberRoles[trainee.position]
+        if (roleCfg?.effects?.singleFansBonus) {
+          gained = Math.round(gained * (1 + roleCfg.effects.singleFansBonus))
+        }
+      }
       fans += gained
       trainee.fans += Math.round(gained * 0.3)
       logs.push({ day: state.day, text: `${trainee.name} 参与公关，粉丝 +${gained}。` })
@@ -214,12 +291,15 @@ export function processDay(state) {
 
     for (const p of partners) {
       const cur = getRelationship(relationships, trainee.id, p.id)
-      setRelationship(
-        relationships,
-        trainee.id,
-        p.id,
-        cur + randInt(CFG.relationships.trainingTogether[0], CFG.relationships.trainingTogether[1])
-      )
+      let relGain = randInt(CFG.relationships.trainingTogether[0], CFG.relationships.trainingTogether[1])
+      if (trainee.groupId && p.groupId === trainee.groupId) {
+        const group = groups.find((g) => g.id === trainee.groupId)
+        const leaderEffects = getLeaderEffects(group)
+        if (leaderEffects.relationshipBoost) {
+          relGain = Math.round(relGain * (1 + leaderEffects.relationshipBoost))
+        }
+      }
+      setRelationship(relationships, trainee.id, p.id, cur + relGain)
     }
   }
 
@@ -418,7 +498,7 @@ export function resolvePoachingEvent(state, keepTrainee) {
   }
 }
 
-export function debutGroup(state, memberIds, groupName) {
+export function debutGroup(state, memberIds, groupName, leaderType, positions) {
   const members = state.trainees.filter((t) => memberIds.includes(t.id))
   if (members.length < CFG.rating.minGroupSize || members.length > CFG.rating.maxGroupSize) {
     return { success: false, message: `出道人数需在 ${CFG.rating.minGroupSize}-${CFG.rating.maxGroupSize} 人之间` }
@@ -431,10 +511,14 @@ export function debutGroup(state, memberIds, groupName) {
     }
   }
 
+  if (!leaderType || !CFG.positions.leaderTypes[leaderType]) {
+    return { success: false, message: '请选择队长类型' }
+  }
+
   const groupId = `g_${Date.now()}`
   const trainees = state.trainees.map((t) => {
     if (memberIds.includes(t.id)) {
-      return { ...t, status: 'debuted', groupId }
+      return { ...t, status: 'debuted', groupId, position: positions?.[t.id] || null }
     }
     return t
   })
@@ -444,6 +528,7 @@ export function debutGroup(state, memberIds, groupName) {
     avgStats[key] = Math.round(members.reduce((s, m) => s + m.stats[key], 0) / members.length)
   }
 
+  const leaderTypeCfg = CFG.positions.leaderTypes[leaderType]
   const groups = [
     ...state.groups,
     {
@@ -454,20 +539,64 @@ export function debutGroup(state, memberIds, groupName) {
       avgStats,
       totalSales: 0,
       singles: [],
+      leaderType,
+      positions: positions || {},
     },
   ]
+
+  const positionDesc = positions
+    ? members.map((m) => {
+        const role = positions[m.id]
+        const roleCfg = CFG.positions.memberRoles[role]
+        return roleCfg ? `${m.name}(${roleCfg.icon}${roleCfg.label})` : m.name
+      }).join('、')
+    : members.map((m) => m.name).join('、')
 
   const logs = [
     ...state.logs,
     {
       day: state.day,
-      text: `🎉 组合「${groupName || groups[groups.length - 1].name}」正式出道！成员：${members.map((m) => m.name).join('、')}`,
+      text: `🎉 组合「${groupName || groups[groups.length - 1].name}」正式出道！${leaderTypeCfg.icon}队长类型：${leaderTypeCfg.label}。成员分工：${positionDesc}`,
     },
   ]
 
   return {
     success: true,
     state: { ...state, trainees, groups, logs, pendingRating: false },
+  }
+}
+
+export function setGroupPositions(state, groupId, positions, leaderType) {
+  const group = state.groups.find((g) => g.id === groupId)
+  if (!group) return { success: false, message: '组合不存在' }
+
+  const groups = state.groups.map((g) => {
+    if (g.id !== groupId) return g
+    return {
+      ...g,
+      positions: { ...g.positions, ...positions },
+      leaderType: leaderType || g.leaderType,
+    }
+  })
+
+  const trainees = state.trainees.map((t) => {
+    if (positions[t.id] !== undefined) {
+      return { ...t, position: positions[t.id] }
+    }
+    return t
+  })
+
+  const logs = [
+    ...state.logs,
+    {
+      day: state.day,
+      text: `✏️ 组合「${group.name}」已更新分工设置。`,
+    },
+  ]
+
+  return {
+    success: true,
+    state: { ...state, trainees, groups, logs },
   }
 }
 
@@ -488,17 +617,62 @@ export function releaseSingle(state, groupId) {
   }
 
   const members = state.trainees.filter((t) => group.memberIds.includes(t.id))
-  const statAvg =
-    CFG.stats.reduce((s, k) => s + group.avgStats[k], 0) / CFG.stats.length
-  const charmAvg = group.avgStats.charm
+
+  let weightedStatSum = 0
+  let fansBonus = 0
+  let charmBonus = 0
+  let vocalBonus = 0
+  let danceBonus = 0
+  let rapBonus = 0
+
+  for (const m of members) {
+    const position = m.position || group.positions?.[m.id]
+    const roleCfg = position ? CFG.positions.memberRoles[position] : null
+    const effects = roleCfg?.effects || {}
+
+    let vocalWeight = 1
+    let danceWeight = 1
+    let rapWeight = 1
+    let charmWeight = 1
+
+    if (effects.singleVocalWeight) vocalWeight = effects.singleVocalWeight
+    if (effects.singleDanceWeight) danceWeight = effects.singleDanceWeight
+    if (effects.singleRapWeight) rapWeight = effects.singleRapWeight
+    if (effects.singleCharmWeight) charmWeight = effects.singleCharmWeight
+    if (effects.singleFansBonus) fansBonus += effects.singleFansBonus
+
+    vocalBonus += m.stats.vocal * vocalWeight
+    danceBonus += m.stats.dance * danceWeight
+    rapBonus += m.stats.rap * rapWeight
+    charmBonus += m.stats.charm * charmWeight
+  }
+
+  const memberCount = members.length || 1
+  vocalBonus /= memberCount
+  danceBonus /= memberCount
+  rapBonus /= memberCount
+  charmBonus /= memberCount
+
+  const statAvg = (vocalBonus + danceBonus + rapBonus + group.avgStats.looks) / 4
   const popularity = state.fans + members.reduce((s, m) => s + m.fans, 0)
 
+  let salesMult = 1
+  if (group.leaderType) {
+    const leaderEffects = CFG.positions.leaderTypes[group.leaderType]?.effects || {}
+    if (leaderEffects.singleSalesBonus) {
+      salesMult += leaderEffects.singleSalesBonus
+    }
+  }
+  salesMult += fansBonus
+
+  const baseSales = CFG.single.baseSales
   const sales = Math.round(
-    CFG.single.baseSales +
+    (baseSales +
       statAvg * CFG.single.statWeight * 50 +
       popularity * CFG.single.fansWeight * 0.08 +
-      charmAvg * CFG.single.charmWeight * 30 +
-      randInt(-200, 400)
+      charmBonus * CFG.single.charmWeight * 30 +
+      randInt(-200, 400)) *
+      salesMult
   )
 
   const revenue = sales * CFG.single.revenuePerSale
@@ -519,11 +693,15 @@ export function releaseSingle(state, groupId) {
     return { ...t, singlesReleased: t.singlesReleased + 1, fans: t.fans + Math.round(sales * 0.05) }
   })
 
+  const leaderDesc = group.leaderType
+    ? `${CFG.positions.leaderTypes[group.leaderType].icon}${CFG.positions.leaderTypes[group.leaderType].label}`
+    : ''
+
   const logs = [
     ...state.logs,
     {
       day: state.day,
-      text: `💿 ${group.name} 发行新单曲，销量 ${sales.toLocaleString()}，收入 ¥${revenue.toLocaleString()}！`,
+      text: `💿 ${group.name}${leaderDesc ? `(${leaderDesc})` : ''} 发行新单曲，销量 ${sales.toLocaleString()}，收入 ¥${revenue.toLocaleString()}！`,
     },
   ]
 

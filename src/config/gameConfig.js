@@ -187,6 +187,132 @@ export const GAME_CONFIG = {
     },
   },
 
+  // ── 组合分工系统 ──
+  positions: {
+    leaderTypes: {
+      charismatic: {
+        label: '魅力型队长',
+        icon: '👑',
+        description: '提升全队魅力训练与公关效果',
+        effects: {
+          charmTrainingBonus: 0.2,
+          prFansBonus: 0.25,
+          teamStressReduction: 0.1,
+        },
+      },
+      skillful: {
+        label: '实力型队长',
+        icon: '💪',
+        description: '提升全队核心训练效率',
+        effects: {
+          vocalTrainingBonus: 0.15,
+          danceTrainingBonus: 0.15,
+          rapTrainingBonus: 0.15,
+        },
+      },
+      caring: {
+        label: '亲和型队长',
+        icon: '💗',
+        description: '促进队内关系和谐，降低疲劳压力',
+        effects: {
+          fatigueReduction: 0.15,
+          stressReduction: 0.2,
+          relationshipBoost: 0.3,
+        },
+      },
+      allrounder: {
+        label: '全能型队长',
+        icon: '⭐',
+        description: '均衡提升各项表现，单曲表现加成',
+        effects: {
+          allTrainingBonus: 0.08,
+          singleSalesBonus: 0.15,
+        },
+      },
+    },
+    memberRoles: {
+      mainVocal: {
+        label: '主唱',
+        icon: '🎤',
+        keyStats: ['vocal', 'charm'],
+        description: '负责歌曲核心演唱，vocal与charm突出',
+        effects: {
+          vocalBonus: 0.25,
+          singleVocalWeight: 1.5,
+        },
+      },
+      mainDancer: {
+        label: '主舞',
+        icon: '💃',
+        keyStats: ['dance', 'charm'],
+        description: '舞台表演核心，dance与charm突出',
+        effects: {
+          danceBonus: 0.25,
+          singleDanceWeight: 1.5,
+        },
+      },
+      mainRapper: {
+        label: '主Rap',
+        icon: '🎧',
+        keyStats: ['rap', 'charm'],
+        description: '负责说唱部分，rap与charm突出',
+        effects: {
+          rapBonus: 0.25,
+          singleRapWeight: 1.5,
+        },
+      },
+      visual: {
+        label: '门面',
+        icon: '✨',
+        keyStats: ['looks', 'charm'],
+        description: '组合形象担当，looks与charm突出',
+        effects: {
+          looksBonus: 0.2,
+          charmBonus: 0.15,
+          singleFansBonus: 0.2,
+        },
+      },
+      center: {
+        label: 'Center',
+        icon: '🌟',
+        keyStats: ['charm', 'looks', 'dance'],
+        description: '舞台中心位，综合魅力突出',
+        effects: {
+          charmBonus: 0.2,
+          singleCharmWeight: 1.4,
+        },
+      },
+      maknae: {
+        label: '忙内',
+        icon: '🌸',
+        keyStats: ['charm'],
+        description: '组合最小成员，粉丝好感度加成',
+        effects: {
+          stressReduction: 0.1,
+          singleFansBonus: 0.1,
+        },
+      },
+      leadVocal: {
+        label: '领唱',
+        icon: '🎵',
+        keyStats: ['vocal'],
+        description: '主唱辅助，vocal训练收益提升',
+        effects: {
+          vocalBonus: 0.15,
+        },
+      },
+      leadDancer: {
+        label: '领舞',
+        icon: '🕺',
+        keyStats: ['dance'],
+        description: '主舞辅助，dance训练收益提升',
+        effects: {
+          danceBonus: 0.15,
+        },
+      },
+    },
+  },
+
   // ── 练习生名字池 ──
   names: [
     '林星遥', '苏晚晴', '陈予安', '顾念初', '沈知夏',

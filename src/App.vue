@@ -27,6 +27,7 @@
     @debut="onDebut"
     @resolve-poaching="handlePoaching"
     @release-single="onReleaseSingle"
+    @set-positions="onSetPositions"
   />
 </template>
 
@@ -55,6 +56,7 @@ const {
   endDay,
   handlePoaching,
   handleDebut,
+  handleSetPositions,
   handleReleaseSingle,
   dismissRating,
   backToMenu,
@@ -86,9 +88,12 @@ function onDelete(i) {
   }
 }
 
-function onDebut(memberIds, groupName, callback) {
-  const result = handleDebut(memberIds, groupName)
-  if (callback) callback(result)
+function onDebut(memberIds, groupName, leaderType, positions) {
+  return handleDebut(memberIds, groupName, leaderType, positions)
+}
+
+function onSetPositions(groupId, positions, leaderType) {
+  handleSetPositions(groupId, positions, leaderType)
 }
 
 function onReleaseSingle(groupId) {
