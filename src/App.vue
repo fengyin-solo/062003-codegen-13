@@ -88,18 +88,18 @@ function onDelete(i) {
   }
 }
 
-function onDebut(memberIds, groupName, leaderType, positions) {
-  return handleDebut(memberIds, groupName, leaderType, positions)
+function onDebut(memberIds, groupName, leaderType, positions, callback) {
+  const result = handleDebut(memberIds, groupName, leaderType, positions)
+  if (callback) callback(result)
 }
 
-function onSetPositions(groupId, positions, leaderType) {
-  handleSetPositions(groupId, positions, leaderType)
+function onSetPositions(groupId, positions, leaderType, callback) {
+  const result = handleSetPositions(groupId, positions, leaderType)
+  if (callback) callback(result)
 }
 
-function onReleaseSingle(groupId) {
+function onReleaseSingle(groupId, callback) {
   const result = handleReleaseSingle(groupId)
-  if (result && !result.success) {
-    alert(result.message)
-  }
+  if (callback) callback(result)
 }
 </script>

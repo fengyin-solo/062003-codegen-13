@@ -38,8 +38,8 @@
           :groups="state.groups"
           :trainees="state.trainees"
           :money="state.money"
-          @release="(id) => $emit('release-single', id)"
-          @set-positions="(gid, pos, lt) => $emit('set-positions', gid, pos, lt)"
+          @release="onReleaseSingle"
+          @set-positions="onSetPositions"
         />
         <RelationshipPanel
           :trainees="state.trainees"
@@ -121,15 +121,40 @@ const showDebut = ref(false)
 const toast = ref('')
 
 function onDebut(memberIds, groupName, leaderType, positions) {
-  const result = emit('debut', memberIds, groupName, leaderType, positions)
-  if (result?.success) {
-    showDebut.value = false
-    toast.value = '出道成功！'
-    setTimeout(() => { toast.value = '' }, 2500)
-  } else if (result?.message) {
-    toast.value = result.message
-    setTimeout(() => { toast.value = '' }, 3000)
-  }
+  emit('debut', memberIds, groupName, leaderType, positions, (result) => {
+    if (result?.success) {
+      showDebut.value = false
+      toast.value = '出道成功！'
+      setTimeout(() => { toast.value = '' }, 2500)
+    } else if (result?.message) {
+      toast.value = result.message
+      setTimeout(() => { toast.value = '' }, 3000)
+    }
+  })
+}
+
+function onReleaseSingle(groupId) {
+  emit('release-single', groupId, (result) => {
+    if (result?.success) {
+      toast.value = `单曲发行成功！销量 ${result.sales.toLocaleString()}，收入 ¥${result.revenue.toLocaleString()}`
+      setTimeout(() => { toast.value = '' }, 3500)
+    } else if (result?.message) {
+      toast.value = result.message
+      setTimeout(() => { toast.value = '' }, 3000)
+    }
+  })
+}
+
+function onSetPositions(groupId, positions, leaderType) {
+  emit('set-positions', groupId, positions, leaderType, (result) => {
+    if (result?.success) {
+      toast.value = '分工已更新！'
+      setTimeout(() => { toast.value = '' }, 2000)
+    } else if (result?.message) {
+      toast.value = result.message
+      setTimeout(() => { toast.value = '' }, 3000)
+    }
+  })
 }
 </script>
 
